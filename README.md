@@ -1,12 +1,12 @@
 # `ReaderWriterLockList<T>`
-Provides a thread-safe implementation of `IList<T>` that takes a reader-priorized approach to synchronization and ensures thread-safe enumeration.
+Provides a thread-safe implementation of `IList<T>` that takes a reader-prioritized approach to synchronization and ensures thread-safe enumeration.
 
 ## Use cases
-The implementation is optimized for low lock contention amongst readers and writers, as well as minimum lock contention between multiple readers.  
-This is not an ideal class for a producer/consumer scenario. `BlockingCollection<T>`, one of the concurrent implementations of `IProducerConsumer<T>`, or TPL Dataflow would be better choices.
+The implementation is optimized for minimum lock contention when there are multiple readers.  
+This is not an ideal class for a producer/consumer scenario: `BlockingCollection<T>`, one of the concurrent implementations of `IProducerConsumer<T>`, or TPL Dataflow would be better choices.
 
 ## Thread-safety notes
-The thread-safety provided by this implementation is not a substitution for proper thread synchronization, any threads performing both reading and writing of values must ensure the list is locked if the outcome of a read can determine a write. For example:
+The thread-safety provided by this implementation is not a substitution for proper thread synchronization, e.g. any threads performing both reading and writing of values must ensure the list is locked **if the outcome of a read can determine a write**. For example:
 
 ```csharp
 if (list[0] == "foo")
@@ -20,10 +20,10 @@ if (list[0] == "foo")
 Users should also take care to synchronize threads that call `IList<T>.Remove` or `IList<T>.RemoveAt` as `IList<T>` does not behave like concurrent collections that allow for things like `TryRemove`. Implementing a `TryRemove` function is a possibility if `IList<T>.Remove` is simply a NO-OP, but that would be quite confusing to users of this class.
 
 ## Implementation
-The `ReaderWriterLockList<T>` class provides thread-safe access to an underlying `List<T>` by utilizing the `ReaderWriterLockSlim` class.  
+The `ReaderWriterLockList<T>` class provides thread-safe access to an underlying `List<T>` by utilizing the `ReaderWriterLockSlim` class to synchronize access, allowing multiple concurrent readers or a single writer.  
 
 ## Comparison to other solutions
-Compared to a simple implementation that only uses `Monitor` locks, `ReaderWriterLockList<T>` provides much less contention among multiple readers, but can be slightly slower when adding items.  
+Compared to a simple implementation that only uses `Monitor` locks, `ReaderWriterLockList<T>` provides much less contention among multiple readers, but can be slightly slower when multiple threads are adding items.  
 
 ## Tests
 Tests for proper thread-safety when modifying the list have been provided, along with some basic performance tests emulating both multiple concurrent writing threads as well as multiple concurrent reading threads.
