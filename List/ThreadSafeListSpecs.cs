@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Xbehave;
@@ -67,7 +68,7 @@ namespace List
         [Scenario]
         [Example(typeof (SimpleLockList<int>), 1000)]
         [Example(typeof (ReaderWriterLockList<int>), 1000)]
-        public void ThreadSafeEnumeration(Type listType, int expected, int actual, IList<int> sut)
+        public void ThreadSafeEnumeration(Type listType, int expected, int actual, ManualResetEventSlim signal, IList<int> sut)
         {
             "Given a {0}".f(() =>
             {
@@ -75,21 +76,27 @@ namespace List
                 for (var i = 0; i < expected; i++)
                     sut.Add(i);
             });
+            "And a ManualResetEvent".f(() => signal = new ManualResetEventSlim(false));
             "When I start enumerating the list before another thread begins adding items".f(() =>
             {
-                Task.Run(() =>
+                var tasks = new List<Task>();
+                tasks.Add(Task.Run(() =>
                 {
                     // ReSharper disable once LoopCanBeConvertedToQuery
                     // ReSharper disable once UnusedVariable
                     foreach (var item in sut)
+                    {
+                        if (!signal.IsSet) signal.Set();
                         actual++;
-                });
-
-                Task.Delay(1).ContinueWith(t =>
+                    }
+                }));
+                tasks.Add(Task.Run(() =>
                 {
+                    signal.Wait();
                     for (var i = 0; i < expected; i++)
                         sut.Add(i);
-                }).Wait();
+                }));
+                Task.WaitAll(tasks.ToArray());
             });
             "Then the list should contain {1} items".f(() => actual.Should().Be(expected));
         }
